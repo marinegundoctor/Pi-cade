@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BoomSweeper: Hall of Fame</title>
+    <style>
+        :root { --page-bg: #121212; --bg: #1e1e2e; --face: #2a2a3c; --white: #44445a; --dark: #0f0f1a; --text: #cdd6f4; --display-bg: #11111b; --display-text: #f5c2e7; --accent: #4dabff; }
+        body { background-color: var(--page-bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }
+        .outset { border: 3px solid; border-color: var(--white) var(--dark) var(--dark) var(--white); }
+        .inset { border: 3px solid; border-color: var(--dark) var(--white) var(--white) var(--dark); }
+        #game-container { background-color: var(--face); padding: 10px; position: relative; display: inline-block; width: fit-content; margin: auto; }
+        #toolbar { display: flex; justify-content: space-between; margin-bottom: 8px; gap: 8px; align-items: center; }
+        .tool { font-size: 11px; background: var(--face); color: var(--text); border: 2px solid; border-color: var(--white) var(--dark) var(--dark) var(--white); cursor: pointer; padding: 2px 5px; }
+        #header { display: flex; justify-content: space-between; align-items: center; padding: 6px; margin-bottom: 8px; }
+        .counter { background: var(--display-bg); color: var(--display-text); font-family: 'Courier New', monospace; font-size: 26px; padding: 0 6px; min-width: 50px; text-align: right; border: 2px solid var(--dark); }
+        #board { display: grid; background-color: var(--dark); border: 3px solid var(--dark); margin: 0 auto; width: min-content; }
+        .cell { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer; box-sizing: border-box; touch-action: none; }
+        .cell.revealed { border: 1px solid var(--white); background-color: var(--face); opacity: 0.8; }
+        .cell.flagged::after { content: '🚩'; font-size: 12px; }
+        .cell.mine::after { content: '💣'; }
+        #menu-overlay, #initials-modal, #modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .menu-box { background: var(--face); padding: 20px; border: 4px solid var(--white); min-width: 200px; }
+        .n1 { color: #4dabff; } .n2 { color: #44ff44; } .n3 { color: #ff4d4d; }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="outset">
+        <div id="toolbar">
+            <span id="toolbar-title" style="font-weight:bold; font-size:11px;">BOOMSWEEPER</span>
+            <button id="daily-btn" class="tool">📅 DAILY</button>
+            <select id="difficulty" class="tool"><option value="9,9,10">Beginner</option><option value="16,16,40">Interm.</option><option value="16,30,99">Expert</option></select>
+            <button id="pause-trigger" class="tool">PAUSE (P)</button>
+        </div>
+        <div id="header" class="inset">
+            <div id="mine-count" class="counter">010</div>
+            <div id="smiley" class="outset" style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">🙂</div>
+            <div id="timer" class="counter">000</div>
+        </div>
+        <div id="board" class="inset"></div>
+        <div style="display:flex; justify-content:space-between; font-size: 10px; margin-top: 8px; opacity: 0.7;">
+            <span>Rank: <span id="rank-val">0/0</span></span>
+            <span id="power-status">📡:1</span>
+        </div>
+        <div id="menu-overlay"><div class="menu-box"><h2>PAUSED</h2><button id="resume-btn" class="tool" style="width:100%; margin-bottom:10px; padding:10px;">RESUME</button><button class="tool" onclick="location.href='/index.html'" style="width:100%; padding:10px;">QUIT</button></div></div>
+        <div id="initials-modal"><div class="menu-box"><h3>NEW RECORD!</h3><input type="text" id="initials-input" maxlength="3" style="text-align:center; font-size:24px; width:80px;"><br><br><button id="submit-score-btn" class="tool">SUBMIT</button></div></div>
+        <div id="modal"><div class="menu-box"><b>PROMOTION!</b><br><br><button class="tool" onclick="reward('sonar')">+1 Sonar</button><button class="tool" onclick="reward('undo')">1 Shield</button></div></div>
+    </div>
+<script>
+    let r,c,m,board=[],revCount=0,flags=0,timer=0,interval=null,first=true,gameOver=false,isPaused=false,correctFlags=0,levelClaimed=false,scans=1,hasUndo=false;
+    const bEl=document.getElementById('board'),mineEl=document.getElementById('mine-count'),timerEl=document.getElementById('timer'),rankEl=document.getElementById('rank-val');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(f, t, d, v=0.03) { if (isPaused) return; try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); } catch(e) {} }
+
+    function init() {
+        const CONFIG={'9,9,10':[9,9,10],'16,16,40':[16,16,40],'16,30,99':[16,30,99]};
+        [r,c,m]=CONFIG[document.getElementById('difficulty').value];
+        board=[];revCount=0;flags=0;timer=0;first=true;gameOver=false;isPaused=false;correctFlags=0;levelClaimed=false;
+        clearInterval(interval); timerEl.innerText='000'; document.getElementById('smiley').innerText='🙂';
+        bEl.style.gridTemplateColumns=`repeat(${c}, 26px)`; bEl.innerHTML='';
+        for(let i=0;i<r*c;i++) {
+            const el=document.createElement('div'); el.className='cell outset';
+            el.onclick=()=>handleReveal(i); el.oncontextmenu=(e)=>{e.preventDefault();handleFlag(i);};
+            bEl.appendChild(el); board.push({mine:false,rev:false,flag:false,n:0});
+        }
+        updateUI();
+    }
+    function handleReveal(i){
+        if(gameOver||isPaused||board[i].flag) return;
+        if(first){first=false; placeMines(i); interval=setInterval(()=>{timer++;timerEl.innerText=String(timer).padStart(3,'0')},1000);}
+        if(board[i].mine){ if(hasUndo){hasUndo=false;handleFlag(i);return;} gameOver=true; clearInterval(interval); playSfx(100,'sawtooth',0.5,0.1); document.getElementById('smiley').innerText='😵'; board.forEach((cell,idx)=>{if(cell.mine)bEl.children[idx].className='cell revealed mine'}); return;}
+        playSfx(440,'sine',0.05,0.01); reveal(i); if(revCount===r*c-m){gameOver=true;clearInterval(interval);playSfx(600,'sine',0.5,0.1);document.getElementById('smiley').innerText='😎';}
+    }
+    function placeMines(s){ let p=0; while(p<m){ let i=Math.floor(Math.random()*board.length); if(!board[i].mine && i!==s){board[i].mine=true; p++;} } board.forEach((cell,i)=>{ if(!cell.mine) cell.n=getN(i).filter(n=>board[n].mine).length; }); }
+    function getN(i){ let row=Math.floor(i/c),col=i%c,res=[]; for(let y=-1;y<=1;y++){for(let x=-1;x<=1;x++){if(x===0&&y===0)continue; let nr=row+y,nc=col+x; if(nr>=0&&nr<r&&nc>=0&&nc<c)res.push(nr*c+nc);}} return res;}
+    function reveal(i){ if(board[i].rev||board[i].flag)return; board[i].rev=true; revCount++; bEl.children[i].className='cell revealed'; if(board[i].n>0){bEl.children[i].innerText=board[i].n; bEl.children[i].classList.add('n'+board[i].n);} else {getN(i).forEach(n=>reveal(n));}}
+    function handleFlag(i){
+        if(gameOver||isPaused||board[i].rev) return;
+        board[i].flag=!board[i].flag; bEl.children[i].classList.toggle('flagged'); flags+=board[i].flag?1:-1;
+        if(board[i].mine && board[i].flag){
+            correctFlags++; let s=JSON.parse(localStorage.getItem('pi_arcade_stats'))||{roids:0,mines:0,sessions:0};
+            s.mines++; localStorage.setItem('pi_arcade_stats',JSON.stringify(s));
+        }
+        playSfx(880,'sine',0.05,0.01); updateUI();
+        if(!levelClaimed && correctFlags >= Math.ceil(m*0.5)){ levelClaimed=true; document.getElementById('modal').style.display='flex'; clearInterval(interval); }
+    }
+    function updateUI(){ mineEl.innerText=String(Math.max(0,m-flags)).padStart(3,'0'); rankEl.innerText=`${correctFlags}/${Math.ceil(m*0.5)}`; }
+    function togglePause(){ if(gameOver)return; isPaused=!isPaused; document.getElementById('menu-overlay').style.display=isPaused?'flex':'none'; if(isPaused) clearInterval(interval); else if(!first) interval=setInterval(()=>{timer++;timerEl.innerText=String(timer).padStart(3,'0')},1000); }
+    function reward(t){ if(t==='sonar')scans++; else hasUndo=true; document.getElementById('modal').style.display='none'; if(!first) interval=setInterval(()=>{timer++;timerEl.innerText=String(timer).padStart(3,'0')},1000); updateUI(); }
+    document.getElementById('pause-trigger').onclick=togglePause;
+    document.getElementById('resume-btn').onclick=togglePause;
+    window.onkeydown=(e)=>{if(e.code==='KeyP')togglePause();};
+    document.getElementById('difficulty').onchange=init;
+    document.getElementById('smiley').onclick=init;
+    init();
+</script>
+</body>
+</html>

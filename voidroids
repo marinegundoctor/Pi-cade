@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Void-Roids: Tactical</title>
+    <style>
+        :root { --bg: #0b0b14; --text: #cdd6f4; --accent: #f5c2e7; --boss: #ff0055; --sg: #ff00ff; --magnet: #ff4444; --shield: #94e2d5; }
+        body { background: var(--bg); margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Courier New', monospace; touch-action: none; }
+        canvas { border: 2px solid #44445a; background: #05050a; cursor: none; }
+        #ui { position: absolute; top: 15px; width: 90%; display: flex; justify-content: space-between; color: var(--accent); pointer-events: none; font-size: 18px; z-index: 5; }
+        #shield-ui { width: 120px; height: 10px; border: 1px solid var(--shield); padding: 1px; display: none; margin-top: 5px; }
+        #shield-bar { height: 100%; background: var(--shield); width: 100%; transition: width 0.2s; }
+        #menu-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 11, 20, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .menu-btn { background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 10px 25px; margin: 10px; font-family: inherit; font-size: 16px; cursor: pointer; min-width: 150px; }
+    </style>
+</head>
+<body>
+    <div id="ui"><div>SCORE: <span id="score">0</span> | LIVES: <span id="lives-display">❤️❤️❤️</span><div id="shield-ui"><div id="shield-bar"></div></div></div><div id="msg" style="font-weight:bold;"></div><div>BEST: <span id="best">0</span></div></div>
+    <div id="pause-trigger" onclick="togglePause()" style="position:absolute; top:15px; left:50%; transform:translateX(-50%); z-index:11; cursor:pointer; color:var(--accent); border:1px solid var(--accent); padding:4px 8px; font-size:12px;">PAUSE (P)</div>
+    <div id="menu-overlay"><h1 id="overlay-title">PAUSED</h1><div id="final-score" style="color:white; margin-bottom:15px; display:none;"></div><button class="menu-btn" onclick="togglePause()">RESUME</button><button id="mute-btn" class="menu-btn" onclick="toggleMute()">AUDIO: ON</button><button class="menu-btn" onclick="location.href='/index.html'">QUIT</button></div>
+    <canvas id="gameCanvas"></canvas>
+<script>
+    const canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d'),scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),msgEl=document.getElementById('msg'),livesEl=document.getElementById('lives-display'),menu=document.getElementById('menu-overlay'),shieldUI=document.getElementById('shield-ui'),shieldBar=document.getElementById('shield-bar'),muteBtn=document.getElementById('mute-btn');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); let isMuted=false;
+    function playSfx(f, t, d, v=0.05, s=0) { if (isPaused || isMuted) return; try { const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=t; o.frequency.setValueAtTime(f, audioCtx.currentTime); if (s!==0) o.frequency.exponentialRampToValueAtTime(s, audioCtx.currentTime+d); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); } catch(e){} }
+    function toggleMute(){ isMuted=!isMuted; muteBtn.innerText=isMuted?"AUDIO: OFF":"AUDIO: ON"; }
+    function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+    window.onresize=resize; resize();
+    const FPS=60,SHIP_SIZE=28,TURN_SPEED=210,THRUST_ACCEL=0.12,FRICTION=0.985,LASER_SPD=700,COLORS=['#f38ba8','#fab387','#f9e2af','#a6e3a1','#89b4fa','#cba6f7'];
+    let score=0,bestScore=localStorage.getItem('voidRoidsHigh')||0,ship,asteroids=[],powerups=[],boss=null,isPaused=false,lastBossScore=0,lives=3;
+    const input={left:false,right:false,thrust:false,reverse:false};
+    function init(){ lives=3; score=0; lastBossScore=0; spawnShip(); asteroids=[]; powerups=[]; boss=null; createAsteroids(5); updateUI(); }
+    function spawnShip(){ ship={x:canvas.width/2,y:canvas.height/2,r:SHIP_SIZE/2,a:90/180*Math.PI,xv:0,yv:0,lasers:[],shield:0,shotgun:0,magnet:0,hasReverse:false,invul:120}; shieldUI.style.display='none'; }
+    function createAsteroids(n){for(let i=0;i<n;i++){let x,y; do{x=Math.random()*canvas.width;y=Math.random()*canvas.height;}while(Math.hypot(ship.x-x,ship.y-y)<150); asteroids.push(newAsteroid(x,y,50));}}
+    function newAsteroid(x,y,r){let v=12,offs=[]; for(let i=0;i<v;i++)offs.push(Math.random()*0.4+0.8); return{x,y,xv:(Math.random()*1.2)*(Math.random()<0.5?1:-1),yv:(Math.random()*1.2)*(Math.random()<0.5?1:-1),r,a:Math.random()*Math.PI*2,vert:v,offs,color:COLORS[Math.floor(Math.random()*COLORS.length)],hasP:Math.random()<0.3};}
+    function shoot(){if(isPaused)return; const addL=(a)=>ship.lasers.push({x:ship.x+4/3*ship.r*Math.cos(a),y:ship.y-4/3*ship.r*Math.sin(a),xv:LASER_SPD*Math.cos(a)/FPS,yv:-LASER_SPD*Math.sin(a)/FPS,d:0}); addL(ship.a); if(ship.shotgun>0){addL(ship.a+0.2);addL(ship.a-0.2);} playSfx(1200,'square',0.1,0.04,100);}
+    window.addEventListener('keydown',e=>{if(e.code==='ArrowLeft')input.left=true;if(e.code==='ArrowRight')input.right=true;if(e.code==='ArrowUp')input.thrust=true;if(e.code==='ArrowDown')input.reverse=true;if(e.code==='Space')shoot();if(e.code==='KeyP')togglePause();});
+    window.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')input.left=false;if(e.code==='ArrowRight')input.right=false;if(e.code==='ArrowUp')input.thrust=false;if(e.code==='ArrowDown')input.reverse=false;});
+    function update(){
+        if(isPaused||lives<=0)return; ctx.fillStyle="#05050a"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        if(input.left)ship.a+=(TURN_SPEED/180*Math.PI/FPS); if(input.right)ship.a-=(TURN_SPEED/180*Math.PI/FPS);
+        if(input.thrust){ship.xv+=THRUST_ACCEL*Math.cos(ship.a); ship.yv-=THRUST_ACCEL*Math.sin(ship.a); playSfx(120,'sawtooth',0.05,0.01);}
+        if(input.reverse&&ship.hasReverse){ship.xv*=0.92; ship.yv*=0.92;}
+        ship.xv*=FRICTION; ship.yv*=FRICTION; ship.x+=ship.xv; ship.y+=ship.yv;
+        if(ship.x<-ship.r)ship.x=canvas.width+ship.r; else if(ship.x>canvas.width+ship.r)ship.x=-ship.r;
+        if(ship.y<-ship.r)ship.y=canvas.height+ship.r; else if(ship.y>canvas.height+ship.r)ship.y=-ship.r;
+        if(ship.invul>0)ship.invul--;
+        if(ship.shield>0){ship.shield-=0.05; shieldUI.style.display='block'; shieldBar.style.width=ship.shield+"%"; if(ship.shield<=0)shieldUI.style.display='none';}
+        if(ship.shotgun>0){ship.shotgun--; msgEl.innerText="SHOTGUN ACTIVE"; msgEl.style.color="var(--sg)";} else if(ship.magnet>0){ship.magnet--; msgEl.innerText="⚠️ MAGNET TRAP"; msgEl.style.color="var(--magnet)";} else msgEl.innerText="";
+        ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(-ship.a);
+        if(ship.shield>0){ctx.strokeStyle="var(--shield)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,ship.r*1.8,0,Math.PI*2); ctx.stroke();}
+        ctx.strokeStyle=ship.shotgun>0?"var(--sg)":(ship.magnet>0?"var(--magnet)":"#89b4fa"); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ship.r*1.5,0); ctx.lineTo(-ship.r,ship.r); ctx.lineTo(-ship.r*0.5,0); ctx.lineTo(-ship.r,-ship.r); ctx.closePath(); ctx.stroke(); ctx.restore();
+        if(!boss && score>=lastBossScore+4000){boss={x:canvas.width/2,y:-50,r:60,hp:10,xv:2,targetY:100}; lastBossScore=score; playSfx(60,'sawtooth',1.5,0.3);}
+        if(boss){boss.y<boss.targetY?boss.y+=1:null; boss.x+=boss.xv; if(boss.x<0||boss.x>canvas.width)boss.xv*=-1; ctx.strokeStyle="var(--boss)"; ctx.beginPath(); ctx.arc(boss.x,boss.y,boss.r,0,Math.PI*2); ctx.stroke(); if(ship.invul<=0 && Math.hypot(ship.x-boss.x,ship.y-boss.y)<ship.r+boss.r){if(ship.shield>0){ship.shield-=40;ship.invul=60;playSfx(200,'sawtooth',0.3);}else handleHit();}}
+        asteroids.forEach((roid,ri)=>{
+            if(ship.magnet>0){let a=Math.atan2(ship.y-roid.y,ship.x-roid.x); roid.xv+=Math.cos(a)*0.06; roid.yv+=Math.sin(a)*0.06;}
+            roid.x+=roid.xv; roid.y+=roid.yv; if(roid.x<-roid.r)roid.x=canvas.width+roid.r; else if(roid.x>canvas.width+roid.r)roid.x=-roid.r; if(roid.y<-roid.r)roid.y=canvas.height+roid.r; else if(roid.y>canvas.height+roid.r)roid.y=-roid.r;
+            ctx.strokeStyle=roid.color; ctx.beginPath(); ctx.moveTo(roid.x+roid.r*roid.offs[0]*Math.cos(roid.a),roid.y+roid.r*roid.offs[0]*Math.sin(roid.a)); for(let j=1;j<roid.vert;j++)ctx.lineTo(roid.x+roid.r*roid.offs[j]*Math.cos(roid.a+j*Math.PI*2/roid.vert),roid.y+roid.r*roid.offs[j]*Math.sin(roid.a+j*Math.PI*2/roid.vert)); ctx.closePath(); ctx.stroke();
+            if(ship.invul<=0 && Math.hypot(ship.x-roid.x,ship.y-roid.y)<ship.r+roid.r){if(ship.shield>0){ship.shield-=30;asteroids.splice(ri,1);ship.invul=40;playSfx(200,'sawtooth',0.3);}else handleHit();}
+        });
+        powerups.forEach((p,pi)=>{
+            p.x+=p.xv; p.y+=p.yv; if(p.x<-10)p.x=canvas.width+10; else if(p.x>canvas.width+10)p.x=-10; if(p.y<-10)p.y=canvas.height+10; else if(p.y>canvas.height+10)p.y=-10;
+            const pColors={'m':'var(--magnet)','s':'var(--shield)','sg':'var(--sg)','v':'white'}; ctx.fillStyle=pColors[p.t]||'white'; ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fill();
+            if(p.t==='m')ctx.fillText("💀",p.x-5,p.y+4); if(p.t==='v')ctx.fillText("⚓",p.x-5,p.y+4);
+            if(Math.hypot(ship.x-p.x,ship.y-p.y)<ship.r+10){if(p.t==='m')ship.magnet=600; else if(p.t==='s')ship.shield=100; else if(p.t==='v')ship.hasReverse=true; else ship.shotgun=600; playSfx(1000,'sine',0.4); powerups.splice(pi,1);}
+        });
+        ship.lasers.forEach((l,li)=>{
+            l.x+=l.xv; l.y+=l.yv; l.d+=Math.hypot(l.xv,l.yv); if(l.d>canvas.width)ship.lasers.splice(li,1); ctx.fillStyle="white"; ctx.fillRect(l.x,l.y,2,2);
+            if(boss && Math.hypot(l.x-boss.x,l.y-boss.y)<boss.r){boss.hp--; ship.lasers.splice(li,1); playSfx(300,'square',0.1); if(boss.hp<=0){score+=1000;boss=null;playSfx(50,'sawtooth',1.5,0.4);updateUI();}}
+            asteroids.forEach((roid,ri)=>{ if(Math.hypot(l.x-roid.x,l.y-roid.y)<roid.r){score+=100; ship.lasers.splice(li,1); playSfx(150,'sawtooth',0.1,0.05); if(roid.hasP)powerups.push({x:roid.x,y:roid.y,xv:(Math.random()-0.5),yv:(Math.random()-0.5),t:['m','sg','s','v'][Math.floor(Math.random()*4)]}); if(roid.r>20){asteroids.push(newAsteroid(roid.x,roid.y,roid.r/2));asteroids.push(newAsteroid(roid.x,roid.y,roid.r/2));} asteroids.splice(ri,1); let s=JSON.parse(localStorage.getItem('pi_arcade_stats'))||{roids:0,mines:0,sessions:0}; s.roids++; localStorage.setItem('pi_arcade_stats',JSON.stringify(s)); updateUI();}});
+        });
+        if(asteroids.length===0 && !boss)createAsteroids(5); requestAnimationFrame(update);
+    }
+    function handleHit(){lives--; playSfx(50,'sawtooth',0.5,0.2); if(lives<=0)gameOver(); else spawnShip(); updateUI();}
+    function gameOver(){isPaused=true; menu.style.display='flex'; document.getElementById('overlay-title').innerText="GAME OVER"; const f=document.getElementById('final-score'); f.style.display='block'; f.innerText="FINAL SCORE: "+score;}
+    function togglePause(){if(lives<=0)return; isPaused=!isPaused; menu.style.display=isPaused?'flex':'none'; if(!isPaused)requestAnimationFrame(update);}
+    function updateUI(){scoreEl.innerText=score; livesEl.innerText="❤️".repeat(lives); if(score>bestScore){bestScore=score;localStorage.setItem('voidRoidsHigh',bestScore);bestEl.innerText=bestScore;}}
+    init(); update();
+</script>
+</body>
+</html>

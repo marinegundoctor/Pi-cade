@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Margun Arcade Hub</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e2e; --accent: #f5c2e7; --text: #cdd6f4; --sub: #a6adc8; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; margin: 0; min-height: 100vh; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-shadow: 0 0 10px rgba(245,194,231,0.3); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; width: 100%; max-width: 550px; margin-bottom: 30px; }
+        .game-card { background: var(--card); border: 2px solid #44445a; border-radius: 12px; padding: 20px; text-align: center; text-decoration: none; color: inherit; transition: 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .game-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 6px 20px rgba(245,194,231,0.1); }
+        .icon { font-size: 3rem; display: block; margin-bottom: 10px; }
+        .stats-box { background: #11111b; border: 2px solid var(--accent); border-radius: 12px; padding: 20px; width: 100%; max-width: 550px; display: flex; justify-content: space-around; margin-bottom: 25px; box-sizing: border-box; }
+        .stat-item { text-align: center; }
+        .stat-item b { display: block; font-size: 1.8rem; color: var(--accent); }
+        .stat-item span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--sub); font-weight: bold; }
+        .medal-row { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+        .medal { background: var(--card); border: 1px solid #44445a; border-radius: 10px; padding: 12px; width: 100px; text-align: center; transition: 0.5s; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .locked { opacity: 0.15; filter: grayscale(1) blur(1px); }
+        .medal b { font-size: 1.5rem; display: block; }
+        .medal small { font-size: 0.65rem; color: var(--sub); font-weight: bold; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+    <h1>🕹️ MARGUN ARCADE</h1>
+    <div class="grid">
+        <a href="/boomsweeper/" class="game-card"><span class="icon">💣</span><b>BoomSweeper</b></a>
+        <a href="/asteroids/" class="game-card"><span class="icon">🚀</span><b>Void-Roids</b></a>
+    </div>
+    <div class="stats-box">
+        <div class="stat-item"><b id="s-roids">0</b><span>Roids Blasted</span></div>
+        <div class="stat-item"><b id="s-mines">0</b><span>Mines Cleared</span></div>
+        <div class="stat-item"><b id="s-sessions">0</b><span>Hub Visits</span></div>
+    </div>
+    <div class="medal-row">
+        <div id="m-blaster" class="medal locked"><b>🏅</b><small>Blaster</small></div>
+        <div id="m-sweeper" class="medal locked"><b>🎖️</b><small>Sweeper</small></div>
+        <div id="m-veteran" class="medal locked"><b>🏆</b><small>Veteran</small></div>
+    </div>
+    <script>
+        window.onload = () => {
+            let stats = JSON.parse(localStorage.getItem('pi_arcade_stats')) || { roids: 0, mines: 0, sessions: 0 };
+            stats.sessions = (stats.sessions || 0) + 1;
+            localStorage.setItem('pi_arcade_stats', JSON.stringify(stats));
+            document.getElementById('s-roids').innerText = stats.roids.toLocaleString();
+            document.getElementById('s-mines').innerText = stats.mines.toLocaleString();
+            document.getElementById('s-sessions').innerText = stats.sessions.toLocaleString();
+            if (stats.roids >= 100) document.getElementById('m-blaster').classList.remove('locked');
+            if (stats.mines >= 50) document.getElementById('m-sweeper').classList.remove('locked');
+            if (stats.sessions >= 10) document.getElementById('m-veteran').classList.remove('locked');
+        };
+    </script>
+</body>
+</html>
