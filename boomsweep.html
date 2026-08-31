@@ -60,7 +60,17 @@
         bEl.style.gridTemplateColumns=`repeat(${c}, 26px)`; bEl.innerHTML='';
         for(let i=0;i<r*c;i++) {
             const el=document.createElement('div'); el.className='cell outset';
-            el.onclick=()=>handleReveal(i); el.oncontextmenu=(e)=>{e.preventDefault();handleFlag(i);};
+            let pTimer, isLP = false;
+            el.addEventListener('touchstart', (e) => {
+                isLP = false;
+                pTimer = setTimeout(() => { isLP = true; handleFlag(i); }, 400);
+            }, {passive:true});
+            const cancelP = () => { if(pTimer) clearTimeout(pTimer); };
+            el.addEventListener('touchend', cancelP);
+            el.addEventListener('touchmove', cancelP);
+            el.addEventListener('touchcancel', cancelP);
+            el.onclick = (e) => { if (isLP) return; handleReveal(i); };
+            el.oncontextmenu = (e) => { e.preventDefault(); handleFlag(i); };
             bEl.appendChild(el); board.push({mine:false,rev:false,flag:false,n:0});
         }
         updateUI();
