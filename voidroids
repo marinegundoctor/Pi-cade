@@ -14,11 +14,17 @@
         #menu-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 11, 20, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
         .menu-btn { background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 10px 25px; margin: 10px; font-family: inherit; font-size: 16px; cursor: pointer; min-width: 150px; }
     
-        #touch-controls { position:absolute; bottom:30px; width:100%; display:none; justify-content:space-between; padding:0 20px; box-sizing:border-box; z-index:10; pointer-events:none; }
-        .tc-group { display:flex; gap:10px; pointer-events:auto; }
-        .t-btn { background: rgba(30,30,46,0.6); color: var(--accent); border: 2px solid #44445a; border-radius: 12px; width: 60px; height: 60px; font-size: 24px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
-        .t-btn:active { background: rgba(245,194,231,0.3); border-color: var(--accent); }
-        @media (pointer: coarse) { #touch-controls { display: flex !important; } }
+        #touch-controls { position:absolute; bottom:max(30px, env(safe-area-inset-bottom, 30px)); width:100%; display:none; justify-content:space-between; padding:0 30px; box-sizing:border-box; z-index:10; pointer-events:none; }
+        .tc-group { display:flex; pointer-events:auto; align-items:flex-end; }
+        .d-pad { display: grid; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px; gap: 8px; }
+        .d-pad #btn-left { grid-column: 1; grid-row: 2; }
+        .d-pad #btn-reverse { grid-column: 2; grid-row: 2; }
+        .d-pad #btn-right { grid-column: 3; grid-row: 2; }
+        .actions-pad { display:flex; gap:15px; margin-bottom:10px; }
+        .t-btn { background: rgba(30,30,46,0.7); color: var(--accent); border: 2px solid #44445a; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
+        .t-btn:active, .t-btn.active { background: rgba(245,194,231,0.5); border-color: var(--accent); transform: scale(0.92); }
+        .t-btn.large { width: 75px; height: 75px; font-size: 32px; border-radius: 20px; }
+        @media (pointer: coarse), (max-width: 800px) { #touch-controls { display: flex !important; } }
     </style>
 </head>
 <body>
@@ -27,14 +33,14 @@
     <div id="menu-overlay"><h1 id="overlay-title">PAUSED</h1><div id="final-score" style="color:white; margin-bottom:15px; display:none;"></div><button class="menu-btn" onclick="togglePause()">RESUME</button><button id="mute-btn" class="menu-btn" onclick="toggleMute()">AUDIO: ON</button><button class="menu-btn" onclick="location.href='/index.html'">QUIT</button></div>
     <canvas id="gameCanvas"></canvas>
     <div id="touch-controls">
-        <div class="tc-group">
+        <div class="tc-group d-pad">
             <div id="btn-left" class="t-btn">◀</div>
             <div id="btn-reverse" class="t-btn">▼</div>
             <div id="btn-right" class="t-btn">▶</div>
         </div>
-        <div class="tc-group">
-            <div id="btn-shoot" class="t-btn">🎯</div>
-            <div id="btn-thrust" class="t-btn">🚀</div>
+        <div class="tc-group actions-pad">
+            <div id="btn-shoot" class="t-btn large">🎯</div>
+            <div id="btn-thrust" class="t-btn large">🚀</div>
         </div>
     </div>
 
@@ -58,15 +64,27 @@
     if('ontouchstart' in window || navigator.maxTouchPoints>0) document.getElementById('touch-controls').style.display='flex';
     const bindBtn = (id, key) => {
         const b = document.getElementById(id);
-        const on = e => { e.preventDefault(); input[key] = true; };
-        const off = e => { e.preventDefault(); input[key] = false; };
-        b.addEventListener('touchstart', on); b.addEventListener('mousedown', on);
+        if(!b) return;
+        const on = e => { e.preventDefault(); input[key] = true; b.classList.add('active'); };
+        const off = e => { e.preventDefault(); input[key] = false; b.classList.remove('active'); };
+        b.addEventListener('touchstart', on, {passive:false}); b.addEventListener('mousedown', on);
         b.addEventListener('touchend', off); b.addEventListener('mouseup', off); b.addEventListener('mouseleave', off);
     };
     bindBtn('btn-left', 'left'); bindBtn('btn-right', 'right'); bindBtn('btn-thrust', 'thrust'); bindBtn('btn-reverse', 'reverse');
+    
     const bs = document.getElementById('btn-shoot');
-    const fire = e => { e.preventDefault(); shoot(); };
-    bs.addEventListener('touchstart', fire); bs.addEventListener('mousedown', fire);
+    let shootInt = null;
+    const sOn = e => { 
+        e.preventDefault(); bs.classList.add('active'); 
+        shoot(); 
+        if(!shootInt) shootInt = setInterval(shoot, 180); 
+    };
+    const sOff = e => { 
+        e.preventDefault(); bs.classList.remove('active'); 
+        if(shootInt){ clearInterval(shootInt); shootInt=null; } 
+    };
+    bs.addEventListener('touchstart', sOn, {passive:false}); bs.addEventListener('mousedown', sOn);
+    bs.addEventListener('touchend', sOff); bs.addEventListener('mouseup', sOff); bs.addEventListener('mouseleave', sOff);
 
     window.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')input.left=false;if(e.code==='ArrowRight')input.right=false;if(e.code==='ArrowUp')input.thrust=false;if(e.code==='ArrowDown')input.reverse=false;});
     function update(){
