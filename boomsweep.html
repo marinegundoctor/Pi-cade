@@ -29,7 +29,7 @@
         <div id="toolbar">
             <span id="toolbar-title" style="font-weight:bold; font-size:11px;">BOOMSWEEPER</span>
             <button id="daily-btn" class="tool">📅 DAILY</button>
-            <select id="difficulty" class="tool"><option value="9,9,10">Beginner</option><option value="16,16,40">Interm.</option><option value="16,30,99">Expert</option></select>
+            <select id="difficulty" class="tool"><option value="9,9,10">Beginner</option><option value="16,16,40">Interm.</option><option value="30,16,99">Expert</option></select>
             <button id="pause-trigger" class="tool">PAUSE (P)</button>
         </div>
         <div id="header" class="inset">
@@ -53,7 +53,7 @@
     function playSfx(f, t, d, v=0.03) { if (isPaused) return; try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); } catch(e) {} }
 
     function init() {
-        const CONFIG={'9,9,10':[9,9,10],'16,16,40':[16,16,40],'16,30,99':[16,30,99]};
+        const CONFIG={'9,9,10':[9,9,10],'16,16,40':[16,16,40],'30,16,99':[30,16,99]};
         [r,c,m]=CONFIG[document.getElementById('difficulty').value];
         board=[];revCount=0;flags=0;timer=0;first=true;gameOver=false;isPaused=false;correctFlags=0;levelClaimed=false;
         clearInterval(interval); timerEl.innerText='000'; document.getElementById('smiley').innerText='🙂';
