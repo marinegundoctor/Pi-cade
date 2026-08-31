@@ -16,12 +16,12 @@
     
         #touch-controls { position:absolute; bottom:max(30px, env(safe-area-inset-bottom, 30px)); width:100%; display:none; justify-content:space-between; padding:0 30px; box-sizing:border-box; z-index:10; pointer-events:none; }
         .tc-group { display:flex; pointer-events:auto; align-items:flex-end; }
-        .d-pad { display: grid; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px; gap: 8px; }
+        .d-pad { display: grid; grid-template-columns: 65px 30px 65px; grid-template-rows: 65px 65px; gap: 15px 0px; }
         .d-pad #btn-left { grid-column: 1; grid-row: 2; }
-        .d-pad #btn-reverse { grid-column: 2; grid-row: 2; }
+        .d-pad #btn-reverse { grid-column: 2; grid-row: 1; justify-self: center; }
         .d-pad #btn-right { grid-column: 3; grid-row: 2; }
         .actions-pad { display:flex; gap:15px; margin-bottom:10px; }
-        .t-btn { background: rgba(30,30,46,0.7); color: var(--accent); border: 2px solid #44445a; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
+        .t-btn { background: rgba(30,30,46,0.7); color: var(--accent); border: 2px solid #44445a; border-radius: 50%; width: 65px; height: 65px; font-size: 26px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
         .t-btn:active, .t-btn.active { background: rgba(245,194,231,0.5); border-color: var(--accent); transform: scale(0.92); }
         .t-btn.large { width: 75px; height: 75px; font-size: 32px; border-radius: 20px; }
         @media (pointer: coarse), (max-width: 800px) { #touch-controls { display: flex !important; } }
