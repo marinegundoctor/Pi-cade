@@ -6,7 +6,7 @@
     <title>BoomSweeper: Hall of Fame</title>
     <style>
         :root { --page-bg: #121212; --bg: #1e1e2e; --face: #2a2a3c; --white: #44445a; --dark: #0f0f1a; --text: #cdd6f4; --display-bg: #11111b; --display-text: #f5c2e7; --accent: #4dabff; }
-        body { background-color: var(--page-bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }
+        body { background-color: var(--page-bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
         .outset { border: 3px solid; border-color: var(--white) var(--dark) var(--dark) var(--white); }
         .inset { border: 3px solid; border-color: var(--dark) var(--white) var(--white) var(--dark); }
         #game-container { background-color: var(--face); padding: 10px; position: relative; display: inline-block; width: fit-content; margin: auto; }
@@ -64,7 +64,15 @@
             bEl.appendChild(el); board.push({mine:false,rev:false,flag:false,n:0});
         }
         updateUI();
+        setTimeout(updateScale, 10);
     }
+    function updateScale() {
+        const gc = document.getElementById('game-container');
+        gc.style.transform = 'none';
+        const scale = Math.min(1, window.innerWidth / (gc.offsetWidth + 20), window.innerHeight / (gc.offsetHeight + 20));
+        gc.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', updateScale);
     function handleReveal(i){
         if(gameOver||isPaused||board[i].flag) return;
         if(first){first=false; placeMines(i); interval=setInterval(()=>{timer++;timerEl.innerText=String(timer).padStart(3,'0')},1000);}
